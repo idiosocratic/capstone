@@ -107,7 +107,7 @@ class value_iter_agent(object):
         
                  
       
-    def do_we_have_a_sas_for_this_arch(self, current_archetype):
+    def is_arch_in_sas_memory(self, current_archetype):
     
         for transition in self.transition_memory:
         
@@ -117,10 +117,45 @@ class value_iter_agent(object):
         
         return False
         
+        
                 
-    def
+    def 
     def
     def    
     def
     def
     def
+    
+
+# generate some training data
+env = gym.make('CartPole-v0')
+for i_episode in xrange(10):
+    observation = env.reset()
+    
+    for t in xrange(200):
+        env.render()
+        print observation
+        
+        old_state = observation  # retain old state for updates
+        action = env.action_space.sample()  #get_action(old_state)
+        
+        observation, reward, done, info = env.step(action)
+        
+        new_state = observation  
+        
+        print "Old state, action, new state, reward: "
+        print old_state, action, new_state, reward
+        print "Shape: "
+        print observation.shape
+        
+        #state_action_state_data.append((old_state,action,new_state))
+        
+        old_state = np.reshape(old_state,(4, 1))
+        
+        states.append(old_state)
+        
+        
+        if done:
+            print "Episode finished after {} timesteps".format(t+1)
+            break
+       
