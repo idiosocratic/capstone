@@ -107,6 +107,63 @@ class value_iter_agent(object):
         return best_action
         
                  
+    
+    def get_archetypes(self, number_of_archs, some_memory):
+    
+        assert not number_of_archs == 0
+        assert not len(some_memory) == 0
+        
+        archetypes = []
+
+        for i in range(number_of_archs):
+            
+            archetypes.append(random.choice(some_memory))
+        
+        return archetypes 
+      
+    
+    
+    def rebalance_archetypes(self, old_archetypes, updated_memory):
+    
+        number_of_archs = len(old_archetypes)
+        
+        archetype_child_lists = [] # list of lists for states belonging to each archetype
+        
+        for num in range(number_of_archs):
+            
+            archetype_child_lists.append([])  # initialize lists for each archetype
+        
+        new_archetypes = []  # list for rebalanced archetypes
+        
+        for state in updated_memory:
+            
+            closest_arch = None # initialize index as invalid
+            
+            closest_distance = 1e3 # initialize as large number
+            
+            for index, arch in enumerate(old_archetypes):
+                
+                dist = np.linalg.norm(state-arch)  # get L2 distance between current state,arch pair
+                    
+                if dist < closest_distance:
+                        
+                    closest_distance = dist
+                        
+                    closest_arch = index
+                
+            assert not closest_arch == None        
+
+            archetype_child_lists[closest_arch].append(state) # assign state to closest arch child list
+
+        for child_list in archetype_child_lists:
+            
+            new_archetype = sum(child_list)/float(len(child_list)) # get average of child_list            
+                
+            new_archetypes.append(new_archetype)
+        
+        return new_archetypes
+      
+      
       
     def is_arch_in_sas_memory(self, current_archetype):
     
@@ -187,6 +244,9 @@ for i_episode in xrange(10):
         
         old_state = observation  # retain old state for updates
         old_state = np.reshape(old_state,(4, 1))  # reshape into numpy array
+        old_archetype = wondering_gnome.get_state_archetype(old_state)  # get old state's arch
+        
+        episode_archetypes.append(old_archetype)
         
         action = env.action_space.sample()  # initialize random action
         
@@ -196,12 +256,17 @@ for i_episode in xrange(10):
             
             if random_fate > wondering_gnome.epsilon:  # e-greedy implementation 
             
-                wondering_gnome.get_best_action()
+                action = wondering_gnome.get_best_action(old_state)
         
         observation, reward, done, info = env.step(action)
         
         new_state = observation  
         new_state = np.reshape(new_state,(4, 1))  # reshape into numpy array
+        new_archetype = wondering_gnome.get_state_archetype(new_state)  # get new state's arch
+        
+        sas_tuple = (old_archetype, action, new_archetype)
+        
+        wondering_gnome.add_to_sas_mem_if_needed(sas_tuple)
         
         print "Old state, action, new state, reward: "
         print old_state, action, new_state, reward
@@ -214,4 +279,19 @@ for i_episode in xrange(10):
         if done:
             print "Episode finished after {} timesteps".format(t+1)
             break
+            
+    if 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+            
        
