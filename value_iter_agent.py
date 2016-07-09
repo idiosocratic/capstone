@@ -75,7 +75,52 @@ class value_iter_agent(object):
                        
     
        
-    def
+    def get_best_action(self, current_archetype):  # get best action given the archetype of our current states
+    
+        possible_transitions = [] # list of archetypes we can get to from here
+    
+        for transition in self.transition_memory:
+        
+            if transition[0] == current_archetype:
+            
+                possible_transitions.append(transition)
+        
+        best_value = 0 # initialize
+        
+        best_transition = None # initialize        
+                                
+        for transition in possible_transitions:
+        
+            value_of_transition = self.arch_value_memory[transition[2]]  # value of next archetype given action
+            
+            if value_of_transition > best_value:
+            
+                best_value = value_of_transition
+                
+                best_transition = transition
+                
+        assert not best_transition == None
+                
+        best_action = best_transition[1]  # get action from best transition 
+        
+        return best_action
+        
+                 
+      
+    def do_we_have_a_sas_for_this_arch(self, current_archetype):
+    
+        for transition in self.transition_memory:
+        
+            if transition[0] == current_archetype:
+            
+                return True
+        
+        return False
+        
+                
     def
     def
     def    
+    def
+    def
+    def
