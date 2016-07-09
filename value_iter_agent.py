@@ -20,6 +20,7 @@ class value_iter_agent(object):
         self.learning_rate = 0.23  # how quickly do we learn
         self.memory_b4_exploit = 200  # how much memory before exploiting 
         self.max_memory = 3e4  # maximum length of states to store in memory
+        self.iteration = 0  # how many states have we seen 
         
         
         #memories
@@ -119,40 +120,95 @@ class value_iter_agent(object):
         
         
                 
-    def 
-    def
-    def    
-    def
+    def should_we_exploit(self):
+    
+        if self.iteration > self.memory_b4_exploit:
+        
+            return True
+            
+        return False
+    
+    
+    
+    def decay_epsilon(self):
+    
+        self.epsilon *= self.epsilon_decay
+    
+    
+    
+    def get_state_archetype(self, current_state):   
+    
+        closest_arch = None
+        
+        closest_distance = 1e3  # initialize as large number
+    
+        for archetype in self.archetypes:
+         
+            raw_arch = archetypes[archetype]  #  get array of archtype
+            
+            dist = get_L2_distance(raw_arch, current_state)  
+            
+            if dist < closest_distance:
+            
+                closest_distance = dist
+                
+                closest_arch = archetype
+                
+        assert not closest_arch == None
+        
+        return closest_arch
+                
+    
+    
+    def get_L2_distance(self, state1, state2):
+    
+        return np.linalg.norm(state1-state2)
+        
+        
+        
     def
     def
     
 
-# generate some training data
+
+# gym env
 env = gym.make('CartPole-v0')
+
+wondering_gnome = value_iter_agent(env.action_space)
+
 for i_episode in xrange(10):
     observation = env.reset()
+    
+    episode_archetypes = []  # archetypes seen this episodes
     
     for t in xrange(200):
         env.render()
         print observation
         
         old_state = observation  # retain old state for updates
-        action = env.action_space.sample()  #get_action(old_state)
+        old_state = np.reshape(old_state,(4, 1))  # reshape into numpy array
+        
+        action = env.action_space.sample()  # initialize random action
+        
+        if wondering_gnome.should_we_exploit():
+         
+            random_fate = np.random.random()
+            
+            if random_fate > wondering_gnome.epsilon:  # e-greedy implementation 
+            
+                wondering_gnome.get_best_action()
         
         observation, reward, done, info = env.step(action)
         
         new_state = observation  
+        new_state = np.reshape(new_state,(4, 1))  # reshape into numpy array
         
         print "Old state, action, new state, reward: "
         print old_state, action, new_state, reward
         print "Shape: "
         print observation.shape
         
-        #state_action_state_data.append((old_state,action,new_state))
         
-        old_state = np.reshape(old_state,(4, 1))
-        
-        states.append(old_state)
         
         
         if done:
