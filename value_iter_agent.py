@@ -21,7 +21,7 @@ class value_iter_agent(object):
         self.memory_b4_exploit = 200  # how much memory before exploiting 
         self.max_memory = 3e4  # maximum length of states to store in memory
         self.iteration = 0  # how many states have we seen 
-        
+        self.have_archetypes = False  # bool, do we have archetypes yet
         
         #memories
         self.transition_memory = []  # list for our SAS transitions 
@@ -233,10 +233,13 @@ env = gym.make('CartPole-v0')
 
 wondering_gnome = value_iter_agent(env.action_space)
 
-for i_episode in xrange(10):
+
+for i_episode in xrange(200):
     observation = env.reset()
     
     episode_archetypes = []  # archetypes seen this episodes
+    
+    episode_score = 0
     
     for t in xrange(200):
         env.render()
@@ -244,29 +247,42 @@ for i_episode in xrange(10):
         
         old_state = observation  # retain old state for updates
         old_state = np.reshape(old_state,(4, 1))  # reshape into numpy array
-        old_archetype = wondering_gnome.get_state_archetype(old_state)  # get old state's arch
-        
-        episode_archetypes.append(old_archetype)
         
         action = env.action_space.sample()  # initialize random action
         
-        if wondering_gnome.should_we_exploit():
-         
+        if wondering_gnome.have_archetypes:
+        
+            old_archetype = wondering_gnome.get_state_archetype(old_state)  # get old state's arch
+        
             random_fate = np.random.random()
             
             if random_fate > wondering_gnome.epsilon:  # e-greedy implementation 
             
-                action = wondering_gnome.get_best_action(old_state)
+                if wondering_gnome.is_arch_in_sas_memory(old_archetype)
+                    
+                    action = wondering_gnome.get_best_action(old_archetype)
+                        
         
         observation, reward, done, info = env.step(action)
         
         new_state = observation  
         new_state = np.reshape(new_state,(4, 1))  # reshape into numpy array
-        new_archetype = wondering_gnome.get_state_archetype(new_state)  # get new state's arch
         
-        sas_tuple = (old_archetype, action, new_archetype)
+        episode_score += reward
         
-        wondering_gnome.add_to_sas_mem_if_needed(sas_tuple)
+        if wondering_gnome.have_archetypes:
+        
+            episode_archetypes.append(old_archetype)
+        
+            new_archetype = wondering_gnome.get_state_archetype(new_state)  # get new state's arch
+        
+            sas_tuple = (old_archetype, action, new_archetype)
+        
+            wondering_gnome.add_to_sas_mem_if_needed(sas_tuple)
+        
+        
+        
+        wondering_gnome.memory.append(old_state)
         
         print "Old state, action, new state, reward: "
         print old_state, action, new_state, reward
@@ -274,15 +290,42 @@ for i_episode in xrange(10):
         print observation.shape
         
         
-        
+        wondering_gnome.iteration += 1
         
         if done:
             print "Episode finished after {} timesteps".format(t+1)
             break
+     
+    
+    if wondering_gnome.have_archetypes:
+    
+        if i_episode % 5 == 0:  # rebalance archetypes every so often
             
-    if 
+            wondering_gnome.archetypes = wondering_gnome.rebalance_archetypes(wondering_gnome.archetypes, wondering_gnome.memory) 
+            
+        
+        wondering_gnome.update_archetype_values(episode_archetypes, episode_score)
+        
+        
+            
+    if wondering_gnome.should_we_exploit():
     
+        if not wondering_gnome.have_archetypes:
+            
+            #  initialize archetypes
+            some_archetypes = wondering_gnome.get_archetypes(wondering_gnome.number_of_archetypes, wondering_gnome.memory)
+            
+            wondering_gnome.archetypes = wondering_gnome.rebalance_archetypes(some_archetypes, wondering_gnome.memory)
     
+            wondering_gnome.have_archetypes = True
+            
+            for index in range(wondering_gnome.number_of_archetypes):
+            
+                wondering_gnome.arch_value_memory[index] = 0  # initialize archetype values
+    
+        
+        wondering_gnome.decay_epsilon()  
+             
     
     
     
