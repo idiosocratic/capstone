@@ -38,7 +38,7 @@ class poly_grad_agent(object):
         self.arch_action_memory = {}  # dict of pairs indicating the best action of our archetypes
         self.archetypes = {}  # dict of our archetypes, key is their index, value is their array representation 
         self.memory = []  # memory of states from which we form our archetypes    
-        self.episode_scores  # keep scores in memory for calculating average
+        self.episode_scores = [] # keep scores in memory for calculating average
     
     
     
@@ -49,6 +49,12 @@ class poly_grad_agent(object):
             return True
         
         return False  
+    
+    
+    
+    def get_average_score(self):
+    
+        return np.average(self.episode_scores)
     
     
     
@@ -94,13 +100,17 @@ class poly_grad_agent(object):
             
                 #found_arch = True
                 
-                if self.arch_action_memory[arch] >= self.base:
+                if self.arch_action_memory[arch] > self.base:
                 
                     return 1
                     
                 if self.arch_action_memory[arch] < self.base:
                 
                     return 0    
+                    
+                if self.arch_action_memory[arch] = self.base:    
+                
+                    return random.choice([0,1])
                 
         assert found_arch        
         
@@ -177,9 +187,12 @@ class poly_grad_agent(object):
         
         new_archetypes_dict = {}
         
-        for index, arch in enumerate(new_archetype):  # populate our dict 
+        for index, arch in enumerate(new_archetypes):  # populate our dict 
         
             new_archetypes_dict[index] = arch
+            
+            
+        assert len(old_archetypes) == len(new_archetypes_dict)    
         
         return new_archetypes_dict
         
@@ -245,7 +258,9 @@ wondering_gnome = poly_grad_agent(env.action_space)
 for i_episode in xrange(200):
     observation = env.reset()
     
-    episode_archetypes = []  # archetypes seen this episodes
+    #episode_archetypes = []  # archetypes seen this episodes
+    
+    episode_archetype_actions = []  # tuples (archetype, action)
     
     episode_score = 0
     
@@ -266,31 +281,26 @@ for i_episode in xrange(200):
             
             if random_fate > wondering_gnome.epsilon:  # e-greedy implementation 
             
-                if wondering_gnome.is_arch_in_sas_memory(old_archetype):
-                    
-                    action = wondering_gnome.get_best_action(old_archetype)
+                action = wondering_gnome.get_archetype_action(old_archetype)
                         
         
         observation, reward, done, info = env.step(action)
         
-        new_state = observation  
-        new_state = np.reshape(new_state,(4, 1))  # reshape into numpy array
+        #new_state = observation  
+        #new_state = np.reshape(new_state,(4, 1))  # reshape into numpy array
         
         episode_score += reward
         
         if wondering_gnome.have_archetypes:
         
-            episode_archetypes.append(old_archetype)
+            #episode_archetypes.append(old_archetype)
         
-            new_archetype = wondering_gnome.get_state_archetype(new_state)  # get new state's arch
-        
-            sas_tuple = (old_archetype, action, new_archetype)
-        
-            wondering_gnome.add_to_sas_mem_if_needed(sas_tuple)
+            episode_archetype_actions.append((old_archetype,action))
         
         
+        if not len(wondering_gnome.memory) > wondering_gnome.max_memory: # have we reached our maximum memory
         
-        wondering_gnome.memory.append(old_state)
+            wondering_gnome.memory.append(old_state)
         
         print "Old state, action, new state, reward: "
         print old_state, action, new_state, reward
@@ -304,6 +314,7 @@ for i_episode in xrange(200):
             print "Episode finished after {} timesteps".format(t+1)
             break
      
+    wondering_gnome.episode_scores.append(episode_score)
     
     if wondering_gnome.have_archetypes:
     
@@ -329,11 +340,17 @@ for i_episode in xrange(200):
             
             for index in range(wondering_gnome.number_of_archetypes):
             
-                wondering_gnome.arch_value_memory[index] = 0  # initialize archetype values
+                wondering_gnome.arch_action_memory[index] = wondering_gnome.base  # initialize archetype actions
     
+        if not len(episode_archetype_actions) == 0:
+            
+            if wondering_gnome.did_we_do_well(episode_score):
+        
+                wondering_gnome.update_archetype_actions(episode_archetype_actions)
+             
         
         wondering_gnome.decay_epsilon()  
-             
+        
     
     
     
