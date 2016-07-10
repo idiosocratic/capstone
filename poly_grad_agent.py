@@ -94,7 +94,13 @@ class poly_grad_agent(object):
             
                 #found_arch = True
                 
-                return self.arch_action_memory[arch]
+                if self.arch_action_memory[arch] >= self.base:
+                
+                    return 1
+                    
+                if self.arch_action_memory[arch] < self.base:
+                
+                    return 0    
                 
         assert found_arch        
         
