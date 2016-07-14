@@ -2,7 +2,8 @@
 
 import numpy as np
 import gym
-import archetypes #functions: get_archetypes & rebalance_archetypes
+#import archetypes #functions: get_archetypes & rebalance_archetypes
+import random
 
 
 class value_iter_agent(object):
@@ -13,9 +14,9 @@ class value_iter_agent(object):
         assert isinstance(action_space, gym.spaces.discrete.Discrete), 'Hey, not our space!'
         
         
-        #hyperparameters
-        self.epsilon = 0.37  # how much do we explore
-        self.epsilon_decay = 0.95  # rate at which we decay epsilon
+        #hyperparameters, some aren't that hyper
+        self.epsilon = 0.73  # how much do we explore
+        self.epsilon_decay = 0.99  # rate at which we decay epsilon
         self.number_of_archetypes = 12  # number of archetypes to use for our states
         self.learning_rate = 0.23  # how quickly do we learn
         self.memory_b4_exploit = 200  # how much memory before exploiting 
@@ -26,7 +27,7 @@ class value_iter_agent(object):
         #memories
         self.transition_memory = []  # list for our SAS transitions 
         self.arch_value_memory = {}  # dict of pairs indicating the value of our archetypes
-        self.archetypes = {}  # dict of our archetypes
+        self.archetypes = {}  # dict of our archetypes, key is their index, value is their array representation 
         self.memory = []  # memory of states from which we form our archetypes    
     
     
@@ -86,7 +87,9 @@ class value_iter_agent(object):
             
                 possible_transitions.append(transition)
         
-        best_value = 0 # initialize
+        assert not len(possible_transitions) == 0
+        
+        best_value = -1 # initialize
         
         best_transition = None # initialize        
                                 
@@ -119,11 +122,18 @@ class value_iter_agent(object):
             
             archetypes.append(random.choice(some_memory))
         
-        return archetypes 
+        archetypes_dict = {}   
+        
+        for index, arch in enumerate(archetypes): 
+        
+            archetypes_dict[index] = arch
+ 
+        
+        return archetypes_dict 
       
     
     
-    def rebalance_archetypes(self, old_archetypes, updated_memory):
+    def rebalance_archetypes(self, old_archetypes, updated_memory):  
     
         number_of_archs = len(old_archetypes)
         
@@ -141,27 +151,60 @@ class value_iter_agent(object):
             
             closest_distance = 1e3 # initialize as large number
             
-            for index, arch in enumerate(old_archetypes):
+            for arch_key in old_archetypes:
                 
-                dist = np.linalg.norm(state-arch)  # get L2 distance between current state,arch pair
+                dist = np.linalg.norm(state - old_archetypes[arch_key])  # get L2 distance between current state,arch pair
                     
                 if dist < closest_distance:
                         
                     closest_distance = dist
                         
-                    closest_arch = index
+                    closest_arch = arch_key
                 
             assert not closest_arch == None        
 
             archetype_child_lists[closest_arch].append(state) # assign state to closest arch child list
 
-        for child_list in archetype_child_lists:
+
+        assert len(archetype_child_lists) == len(old_archetypes)
+
+
+        for index, child_list in enumerate(archetype_child_lists):
             
-            new_archetype = sum(child_list)/float(len(child_list)) # get average of child_list            
+            append = False
+            
+            if not len(child_list) == 0:
+            
+                new_archetype = sum(child_list)/float(len(child_list)) # get average of child_list            
                 
-            new_archetypes.append(new_archetype)
+                new_archetypes.append(new_archetype)
+                
+                append = True
+                
+            if len(child_list) == 0:    
+            
+                new_archetype = old_archetypes[index]  # this one has no children for updating
+                
+                new_archetypes.append(new_archetype)
+            
+                append = True
+            
+            assert append   
+                
+                
+        assert len(new_archetypes) == len(old_archetypes)
+        assert len(archetype_child_lists) == len(old_archetypes)    
         
-        return new_archetypes
+        new_archetypes_dict = {}
+        
+        for index, arch in enumerate(new_archetypes):  # populate our dict 
+        
+            new_archetypes_dict[index] = arch
+
+        
+        assert len(old_archetypes) == len(new_archetypes_dict)
+        
+        return new_archetypes_dict
       
       
       
@@ -201,9 +244,9 @@ class value_iter_agent(object):
     
         for archetype in self.archetypes:
          
-            raw_arch = archetypes[archetype]  #  get array of archtype
+            raw_arch = self.archetypes[archetype]  #  get array of archetype
             
-            dist = get_L2_distance(raw_arch, current_state)  
+            dist = self.get_L2_distance(raw_arch, current_state)  
             
             if dist < closest_distance:
             
@@ -213,7 +256,7 @@ class value_iter_agent(object):
                 
         assert not closest_arch == None
         
-        return closest_arch
+        return closest_arch  # returning archetype key
                 
     
     
@@ -223,8 +266,8 @@ class value_iter_agent(object):
         
         
         
-    def
-    def
+    #def
+    #def
     
 
 
@@ -233,6 +276,7 @@ env = gym.make('CartPole-v0')
 
 wondering_gnome = value_iter_agent(env.action_space)
 
+rewards_list = []
 
 for i_episode in xrange(200):
     observation = env.reset()
@@ -240,6 +284,8 @@ for i_episode in xrange(200):
     episode_archetypes = []  # archetypes seen this episodes
     
     episode_score = 0
+    
+    episode_rewards = 0 
     
     for t in xrange(200):
         env.render()
@@ -258,7 +304,7 @@ for i_episode in xrange(200):
             
             if random_fate > wondering_gnome.epsilon:  # e-greedy implementation 
             
-                if wondering_gnome.is_arch_in_sas_memory(old_archetype)
+                if wondering_gnome.is_arch_in_sas_memory(old_archetype):
                     
                     action = wondering_gnome.get_best_action(old_archetype)
                         
@@ -281,8 +327,9 @@ for i_episode in xrange(200):
             wondering_gnome.add_to_sas_mem_if_needed(sas_tuple)
         
         
+        if not len(wondering_gnome.memory) > wondering_gnome.max_memory: # have we reached our maximum memory
         
-        wondering_gnome.memory.append(old_state)
+            wondering_gnome.memory.append(old_state)
         
         print "Old state, action, new state, reward: "
         print old_state, action, new_state, reward
@@ -292,10 +339,13 @@ for i_episode in xrange(200):
         
         wondering_gnome.iteration += 1
         
+        episode_rewards += reward
+        
         if done:
             print "Episode finished after {} timesteps".format(t+1)
             break
      
+    rewards_list.append(episode_rewards)
     
     if wondering_gnome.have_archetypes:
     
@@ -303,9 +353,11 @@ for i_episode in xrange(200):
             
             wondering_gnome.archetypes = wondering_gnome.rebalance_archetypes(wondering_gnome.archetypes, wondering_gnome.memory) 
             
+            print "#3"
+            assert not len(wondering_gnome.archetypes) < wondering_gnome.number_of_archetypes
         
+        #update archetype values
         wondering_gnome.update_archetype_values(episode_archetypes, episode_score)
-        
         
             
     if wondering_gnome.should_we_exploit():
@@ -315,7 +367,13 @@ for i_episode in xrange(200):
             #  initialize archetypes
             some_archetypes = wondering_gnome.get_archetypes(wondering_gnome.number_of_archetypes, wondering_gnome.memory)
             
+            print "#1"
+            assert not len(some_archetypes) < wondering_gnome.number_of_archetypes
+            
             wondering_gnome.archetypes = wondering_gnome.rebalance_archetypes(some_archetypes, wondering_gnome.memory)
+    
+            print "#2"
+            assert not len(wondering_gnome.archetypes) < wondering_gnome.number_of_archetypes    
     
             wondering_gnome.have_archetypes = True
             
@@ -326,7 +384,12 @@ for i_episode in xrange(200):
         
         wondering_gnome.decay_epsilon()  
              
+             
+print rewards_list             
     
+print wondering_gnome.archetypes 
+
+print wondering_gnome.arch_value_memory   
     
     
     

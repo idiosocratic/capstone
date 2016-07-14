@@ -1,5 +1,5 @@
 # model-free discrete policy gradient agent using archetypes
-
+#commit comment
 
 # if we_did_well:
 #   
@@ -311,6 +311,23 @@ for i_episode in xrange(100):
     
     episode_score = 0
     
+    exploring_dict  = {}
+    
+    if wondering_gnome.have_archetypes:
+        
+        for archetype_key in wondering_gnome.archetypes:
+
+            exploring_dict[archetype_key] = env.action_space.sample()
+    
+    exploring = False
+    
+    random_fate = np.random.random()
+            
+    if random_fate > wondering_gnome.epsilon:
+        
+        exploring = True
+    
+    
     for t in xrange(200):
         env.render()
         #print observation
@@ -323,12 +340,10 @@ for i_episode in xrange(100):
         if wondering_gnome.have_archetypes:
         
             old_archetype = wondering_gnome.get_state_archetype(old_state)  # get old state's arch
-        
-            random_fate = np.random.random()
             
-            if random_fate > wondering_gnome.epsilon:  # e-greedy implementation 
+            if exploring:  # e-greedy implementation 
             
-                action = wondering_gnome.get_archetype_action(old_archetype)
+                action = exploring_dict[old_archetype]
                         
         
         observation, reward, done, info = env.step(action)
@@ -462,13 +477,6 @@ print wondering_gnome.arch_action_memory
     
     
     
-# explore archetypes
-
-explore_dict  = {}
-
-for arch in types:
-
-    explore_dict[arch] = env.action_space.sample()
     
         
     
