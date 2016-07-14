@@ -323,7 +323,7 @@ for i_episode in xrange(100):
     
     random_fate = np.random.random()
             
-    if random_fate > wondering_gnome.epsilon:
+    if random_fate < wondering_gnome.epsilon:
         
         exploring = True
     
