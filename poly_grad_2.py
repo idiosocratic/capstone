@@ -23,9 +23,9 @@ class poly_grad_agent(object):
         
         
         #hyperparameters, some aren't that hyper
-        self.epsilon = 1.3  # how much do we explore
-        self.epsilon_decay = 0.93  # rate at which we decay epsilon
-        self.number_of_archetypes = 20  # number of archetypes to use for our states
+        self.epsilon = 0.63  # how much do we explore
+        self.epsilon_decay = 0.99  # rate at which we decay epsilon
+        self.number_of_archetypes = 6  # number of archetypes to use for our states
         self.learning_rate = 0.3  # how quickly do we learn
         self.memory_b4_exploit = 100  # how much memory before exploiting 
         self.max_memory = 3e4  # maximum length of states to store in memory
@@ -302,7 +302,7 @@ env = gym.make('CartPole-v0')
 wondering_gnome = poly_grad_agent(env.action_space)
 
 
-for i_episode in xrange(100):
+for i_episode in xrange(250):
     observation = env.reset()
     
     #episode_archetypes = []  # archetypes seen this episodes
@@ -426,7 +426,7 @@ for i_episode in xrange(100):
                 
                     print episode_archetype_actions
                     print "Poorly ^^^ "
-                    wondering_gnome.update_archetype_actions(episode_archetype_actions)   
+                    wondering_gnome.update_archetype_actions(episode_archetype_actions)
                 
                     #assert False 
              
@@ -436,8 +436,11 @@ for i_episode in xrange(100):
         print "Episode #: "
         print i_episode
         print "Epsilon: "
-        print wondering_gnome.epsilon 
-        
+        print wondering_gnome.epsilon
+
+        print "actions"
+        print wondering_gnome.arch_action_memory
+
         
 print wondering_gnome.average_score   
 print "last 30:"
