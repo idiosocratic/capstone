@@ -15,14 +15,13 @@ class value_iter_agent(object):
         
         
         #hyperparameters, some aren't that hyper
-        self.epsilon = 0.73  # how much do we explore
-        self.epsilon_decay = 0.99  # rate at which we decay epsilon
+        self.epsilon = 0.53  # how much do we explore
+        self.epsilon_decay = 0.9995  # rate at which we decay epsilon
         self.number_of_archetypes = 8  # number of archetypes to use for our states
         self.memory_b4_arch_initialize = 200  # how much memory before exploiting
         self.max_memory = 3e4  # maximum length of states to store in memory
         self.iteration = 0  # how many states have we seen 
         self.have_archetypes = False  # bool, do we have archetypes yet
-        self.foresight = 3  # how many actions do we plan ahead
         
         #memories
         self.highest_score = 0  # highest score received so far 
@@ -30,9 +29,114 @@ class value_iter_agent(object):
         self.arch_action_memory = []  # list of archetype action dicts
         self.archetypes = {}  # dict of our archetypes, key is their index, value is their array representation 
         self.memory = []  # memory of states from which we form our archetypes    
+        self.action_superset = []  # superset of archetype actions
 
+
+    def should_we_initialize_archs(self):
     
+        if self.iteration > self.memory_b4_arch_initialize:
     
+            return True
+
+        return False
+    
+
+
+    def create_arch_action_superset(self, possible_actions):
+
+        initial_arch_action_list = []
+        
+        print "actions"
+        print possible_actions[0]
+        print "actions"
+        print possible_actions[1]
+        print "actions"
+        
+        zero = possible_actions[0]
+        print zero
+        
+        
+        for i in range(self.number_of_archetypes):
+
+            initial_arch_action_list.append(zero)
+        
+        
+        print initial_arch_action_list
+        
+        self.permute_next_index(initial_arch_action_list, 0, possible_actions)
+        
+        #dedup_action_
+        
+        #self.action_superset = list(set(self.action_superset))
+        
+        print possible_actions
+        print initial_arch_action_list
+        print "Len: "
+        print len(self.action_superset)
+        
+        assert len(self.action_superset) >= len(possible_actions)**(self.number_of_archetypes)
+        
+        arch_action_dict_superset = []
+            
+        for action_list in self.action_superset:
+            
+            dict_index = len(arch_action_dict_superset)
+            
+            arch_action_dict_superset.append({})
+            
+            for action_index, action in enumerate(action_list):
+
+                arch_action_dict_superset[dict_index][action_index] = action
+                
+        
+        self.arch_action_memory = arch_action_dict_superset
+                
+                
+                
+    def permute_next_index(self, action_list, index_to_permute, action_set):
+    
+        if index_to_permute < len(action_list):
+            
+            permutation_children = []
+            
+            for num in range(len(action_set)):
+            
+                permutation_children.append([])  # initialize permutations
+        
+
+            for action in action_list:
+            
+                for entry in permutation_children:
+                
+                    entry.append(action)
+            
+            
+            for index, action in enumerate(action_set):
+                
+                permutation_children[index][index_to_permute] = action
+
+            
+            for child in permutation_children:
+
+                if not child in self.action_superset:
+
+                    self.action_superset.append(child)
+        
+                    print "added"
+
+
+            next_permutation_index = index_to_permute + 1
+
+
+            print "Permute children: "
+            print permutation_children
+            
+            for child in permutation_children:
+                
+                self.permute_next_index(child, next_permutation_index, action_set)
+
+
+
     def initialize_arch_action_list(self):
         
         needed_number = 2**(self.number_of_archetypes)
@@ -68,7 +172,11 @@ class value_iter_agent(object):
         
     def replace_highest_arch_action_dict_if_needed(self, arch_action_dict, episode_score):    
     
-        if episode_score > self.highest_score:
+        if episode_score >= self.highest_score:
+            
+            print "Replaced: " + str(self.highest_permutation)
+            print "For: " + str(arch_action_dict)
+            print "@ " + str(episode_score)
             
             self.highest_score = episode_score
         
@@ -230,7 +338,7 @@ env = gym.make('CartPole-v0')
 
 wondering_gnome = value_iter_agent(env.action_space)
 
-wondering_gnome.initialize_arch_action_list()
+wondering_gnome.create_arch_action_superset([0,1])
 
 rewards_list = []
 
@@ -246,7 +354,9 @@ for i_episode in xrange(400):
     if wondering_gnome.should_we_explore():
     
         epi_arch_action_dict = random.choice(wondering_gnome.arch_action_memory)  # we're exploring
+        print "Exploring!"
     
+    print epi_arch_action_dict
     
     for t in xrange(200):
         env.render()
@@ -309,9 +419,7 @@ for i_episode in xrange(400):
     if wondering_gnome.should_we_initialize_archs():
     
         some_archetypes = wondering_gnome.get_archetypes(wondering_gnome.number_of_archetypes, wondering_gnome.memory)
-            
-        print "#1"
-        assert not len(some_archetypes) < wondering_gnome.number_of_archetypes
+        
             
         wondering_gnome.archetypes = wondering_gnome.rebalance_archetypes(some_archetypes, wondering_gnome.memory)
     
@@ -319,11 +427,6 @@ for i_episode in xrange(400):
         assert not len(wondering_gnome.archetypes) < wondering_gnome.number_of_archetypes
     
         wondering_gnome.have_archetypes = True
-            
-        for index in range(wondering_gnome.number_of_archetypes):
-            
-            wondering_gnome.arch_value_memory[index] = 0  # initialize archetype values
-    
         
 
              
@@ -332,10 +435,12 @@ print rewards_list
     
 print wondering_gnome.archetypes 
 
-print wondering_gnome.arch_value_memory
+print wondering_gnome.highest_permutation
 
-print wondering_gnome.transition_memory
+print wondering_gnome.highest_score
 
 print np.average(rewards_list)
+
+print wondering_gnome.action_superset
     
     
