@@ -3,6 +3,7 @@
 
 import numpy as np
 import gym
+import random
 
 
 class NnSelcMemAgent(object):
@@ -13,13 +14,13 @@ class NnSelcMemAgent(object):
         assert isinstance(action_space, gym.spaces.discrete.Discrete), 'Yo, not our space!'
         
         # hyperparameters
-        self.epsilon = 0.9  # exploration percentage
+        self.epsilon = 0.73  # exploration percentage
         self.epsilon_decay = 0.99 # exploration decay
-        self.similar_state_mem_num = 13 # number of similar states to keep in memory
+        self.similar_state_mem_num = 7 # number of similar states to keep in memory
         self.similarity_threshold = 0.1 # how close states can be before we consider them roughly equivalent
         self.state_action_rewards_memory = [] # selective memory for our (state,action,reward) tuples
         self.iteration = 0 # how many actions have we taken
-        self.time_before_exploit = 337 # how much knowledge to build before using it
+        self.time_before_exploit = 237 # how much knowledge to build before using it
     
     
     
@@ -34,13 +35,11 @@ class NnSelcMemAgent(object):
             
             episode_reward = s_a_r_1[2]
             
-            state_added = False
-            
             number_of_sim_states_in_mem = 0
             
-            index_of_sim_state_with_lowest_reward = None
+            sim_mem_state_indexed_list = []
             
-            lowest_reward_for_sim_mem_state = 1e4  # initialize as very high value
+            self.state_action_rewards_memory.append(s_a_r_1) # add new state_action_reward_tuple to memory
             
             for index, s_a_r_2 in enumerate(self.state_action_rewards_memory):
                 
@@ -50,28 +49,24 @@ class NnSelcMemAgent(object):
                 
                 mem_state_index = index
                 
-                if self.are_these_states_the_same(state1,state2):
+                if self.are_these_states_the_same(episode_state,mem_state):
                 
-                    number_of_sim_states_in_mem +=1    
-                        
-                    if mem_rewards < lowest_reward_for_sim_mem_state:
+                    number_of_sim_states_in_mem +=1
         
-                        index_of_sim_state_with_lowest_reward = mem_state_index
+                    sim_mem_state_indexed_list.append((s_a_r_2,index))
         
         
-            if number_of_sim_states_in_mem < self.similar_state_mem_num : # do we need more memory for this state  
-            
-                self.state_action_rewards_memory.append(s_a_r_1)
-                
-                state_added = True
-                
-            if not state_added: # have enough memory, but is it good enough
-            
-                if lowest_reward_for_sim_mem_state < episode_rewards:
-    
-                    pruned_mem = self.state_action_rewards_memory.pop(index_of_sim_state_with_lowest_reward)
-                    
-                    self.state_action_rewards_memory.append(s_a_r_1)
+            sim_mem_state_indexed_list = sorted(sim_mem_state_indexed_list, key = lambda x: x[0][2]) # put mems with least rewards in front
+
+                                                      
+            if number_of_sim_states_in_mem > self.similar_state_mem_num:
+
+                for i in range(number_of_sim_states_in_mem - self.similar_state_mem_num):
+                                                      
+                    index_to_prune = sim_mem_state_indexed_list[i][1]  # pruning lower reward memories at front of list
+                                                      
+                    pruned_mem = self.state_action_rewards_memory.pop(index_to_prune)
+               
                 
 
 
@@ -96,7 +91,11 @@ class NnSelcMemAgent(object):
         for s_a_r in nearest_sar_tuples:
         
             action_list.append(s_a_r[1])
-                    
+        
+        if len(nearest_sar_tuples) == 0:
+            print "BAILED!!!"
+            return random.choice([0,1])
+        
         averaged_action = np.average(action_list) # get majority vote           
                     
         action = None # initialize
@@ -108,7 +107,10 @@ class NnSelcMemAgent(object):
         if averaged_action < 0.5: # round
             
             action = 0    
-                
+        
+        print "Len: " + str(len(self.state_action_rewards_memory))
+        print action_list
+        print averaged_action
         assert not (action == None) # assert have action
         
         return action
@@ -158,7 +160,7 @@ wondering_gnome = NnSelcMemAgent(env.action_space)
             
 episode_rewards_list = []            
             
-for i_episode in xrange(200):
+for i_episode in xrange(400):
     observation = env.reset()
     
     episode_rewards = 0
@@ -227,7 +229,7 @@ for i_episode in xrange(200):
         wondering_gnome.decay_epsilon()
     
            
-      
+print wondering_gnome.state_action_rewards_memory
 print "Rewards List: "
 print episode_rewards_list
 print "Average Overall: "
