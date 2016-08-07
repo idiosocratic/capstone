@@ -81,21 +81,13 @@ class PolyGradAgent(object):
 
 
 
-    def are_we_exploring(self):
+    def are_we_exploiting(self):  # do we have enough memory to start training our neural net
 
         if not self.net_trained:
 
-            return True
+            return False
 
-        if self.net_trained:
-
-            random_fate = np.random.random()
-
-            if random_fate > self.epsilon:  # e-greedy implementation
-
-                return True
-        
-        return False
+        return True
 
 
 
@@ -171,25 +163,32 @@ for i_episode in xrange(2000):
     
     #episode_state_target_list = []
     
-    exploring = wondering_gnome.are_we_exploring()
+    exploiting = wondering_gnome.are_we_exploiting()
     
     for t in xrange(200):
         env.render()
         #print observation
         
+        state_for_mem = observation
+        
         current_state =  np.expand_dims(observation, axis=0)
         
         action = env.action_space.sample()  # initialize action randomly
         
-        if not exploring:
+        if exploiting:
 
-            raw_output = output.eval(feed_dict = {state: current_state, keep_prob: 1.0})
+            random_fate = np.random.random()
         
-            action = np.argmax(raw_output)
+            if random_fate > self.epsilon:  # e-greedy implementation
+            
+                raw_output = output.eval(feed_dict = {state: current_state, keep_prob: 1.0})
+        
+                action = np.argmax(raw_output)
+        
         
         observation, reward, done, info = env.step(action)
         
-        episode_state_action_list.append((current_state, action))
+        episode_state_action_list.append((state_for_mem, action))
         
         episode_rewards += reward
         
@@ -218,10 +217,14 @@ for i_episode in xrange(2000):
         #if i%100 == 0:
         #    train_accuracy = accuracy.eval(feed_dict={ state:batch[0], actions: batch[1], keep_prob: 1.0})
         #    print("step %d, training accuracy %g"%(i, train_accuracy))
-                
+        
         train_step.run(feed_dict={state: batch[0], actions: batch[1], keep_prob: 0.75})
 
         wondering_gnome.net_trained = True
+
+
+print "Size of our memory: "
+print len(wondering_gnome.state_action_mem)
 
 
 
