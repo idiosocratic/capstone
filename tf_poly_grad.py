@@ -10,44 +10,62 @@ import tensorflow as tf
 import gym
 
 
-### model hyperparameters
-
-epsilon = 0.7  # how much do we explore
-epsilon_decay_rate = 0.99  # rate by which exploration decreases
-high_score = 0  # keep track of highest score obtained thus far
-
-
-### finite state_action memory for episodes where we did well
-state_action_mem = deque(maxlen = 5000)
-
-# format testing data
-testing_states = []
-testing_actions = []
-
-for state_action in raw_testing_data:
+class PolyGradAgent(object):
     
-    testing_states.append(state_action[0])
-    testing_actions.append(state_action[1])
-
-testing_data = (testing_states, testing_actions)
-
-
-def next_batch(batch_size):
-    
-    rand_batch = random.sample(raw_training_data, batch_size)
-    
-    _states = []
-    _actions = []
-    
-    for state_action in rand_batch:
+    def __init__(self, action_space):
         
-        #format_state = np.expand_dims(state_action[0], axis=0)
-        _states.append(state_action[0])
-        _actions.append(state_action[1])
+        self.action_space = action_space
+        assert isinstance(action_space, gym.spaces.discrete.Discrete), 'Yo, not our space!'
+
+        ### model hyperparameters
+
+        self.epsilon = 0.7  # how much do we explore
+        self.epsilon_decay_rate = 0.99  # rate by which exploration decreases
+        self.high_score = 0  # keep track of highest score obtained thus far
+        self.did_well_threshold = 0.77  # how close we need to be to our high score to have "done well"
+
+        ### finite state_action memory for episodes where we did well
+        self.state_action_mem = deque(maxlen = 5000)
+
+
+
+    def get_next_batch(self, batch_size):
+            
+        if len(self.state_action_mem) < batch_size:
+        
+            assert False, "Not enough memory for batch size!"
+            
+        rand_batch = random.sample(self.state_action_mem, batch_size)  # get random sample
     
-    batch_lists = (_states, _actions)
+        _states = []
+        _actions = []
     
-    return batch_lists
+        for state_action in rand_batch:  # format random sample
+        
+            _states.append(state_action[0])
+            _actions.append(state_action[1])
+    
+        batch_lists = (_states, _actions)
+
+        return batch_lists
+
+
+
+    def did_we_do_well(self, episode_rewards):
+
+        if episode_rewards > self.did_well_threshold * self.high_score:
+
+            return True
+
+        return False
+
+
+
+    def add_to_memory(self, episode_state_action_list):
+
+        for state_action in episode_state_action_list:
+
+            self.state_action_mem.append(state_action)
 
 
 
