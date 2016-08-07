@@ -66,7 +66,18 @@ class PolyGradAgent(object):
 
         for state_action in episode_state_action_list:
 
-            self.state_action_mem.append(state_action)
+            _state = state_action[0]
+            _action = None  # initialize action
+            
+            if state_action[1] == 1:  # format one-hot action vector
+            
+                _action = [0, 1]
+            
+            if state_action[1] == 0:  # format one-hot action vector
+            
+                _action = [1, 0]
+
+            self.state_action_mem.append((_state, _action))
 
 
 
@@ -159,27 +170,28 @@ for i_episode in xrange(2000):
     episode_state_action_list = []
     
     #episode_state_target_list = []
+    
+    exploring = wondering_gnome.are_we_exploring()
+    
     for t in xrange(200):
         env.render()
         #print observation
         
         current_state =  np.expand_dims(observation, axis=0)
         
-        raw_output = output.eval(feed_dict = {state: current_state, keep_prob: 1.0})
+        action = env.action_space.sample()  # initialize action randomly
         
-        action = np.argmax(raw_output)
+        if not exploring:
+
+            raw_output = output.eval(feed_dict = {state: current_state, keep_prob: 1.0})
         
-        #action_list.append(action)
+            action = np.argmax(raw_output)
         
         observation, reward, done, info = env.step(action)
         
         episode_state_action_list.append((current_state, action))
         
         episode_rewards += reward
-        
-        #iteration_number += 1
-        #print "iteration_number: "
-        #print iteration_number
         
         if done:
             
@@ -189,9 +201,12 @@ for i_episode in xrange(2000):
     print "E Rs: "
     print episode_rewards
 
-    if wondering_gnome.did_we_do_well(episode_rewards):
+    if wondering_gnome.did_we_do_well(episode_rewards):  # add episode to our memory if we did well
 
         wondering_gnome.add_to_memory(episode_state_action_list)
+
+
+    wondering_gnome.update_high_score(episode_rewards)  # update high score
 
 
     batch_size = 100
@@ -200,11 +215,13 @@ for i_episode in xrange(2000):
 
         batch = wondering_gnome.get_next_batch(batch_size)
 
-        if i%100 == 0:
-            train_accuracy = accuracy.eval(feed_dict={ state:batch[0], actions: batch[1], keep_prob: 1.0})
-            print("step %d, training accuracy %g"%(i, train_accuracy))
+        #if i%100 == 0:
+        #    train_accuracy = accuracy.eval(feed_dict={ state:batch[0], actions: batch[1], keep_prob: 1.0})
+        #    print("step %d, training accuracy %g"%(i, train_accuracy))
                 
         train_step.run(feed_dict={state: batch[0], actions: batch[1], keep_prob: 0.75})
+
+        wondering_gnome.net_trained = True
 
 
 
