@@ -23,6 +23,7 @@ class PolyGradAgent(object):
         self.epsilon_decay_rate = 0.99  # rate by which exploration decreases
         self.high_score = 0  # keep track of highest score obtained thus far
         self.did_well_threshold = 0.77  # how close we need to be to our high score to have "done well"
+        self.net_trained = False  # has our neural net had any training
 
         ### finite state_action memory for episodes where we did well
         self.state_action_mem = deque(maxlen = 5000)
@@ -69,6 +70,40 @@ class PolyGradAgent(object):
 
 
 
+    def are_we_exploring(self):
+
+        if not self.net_trained:
+
+            return True
+
+        if self.net_trained:
+
+            random_fate = np.random.random()
+
+            if random_fate > self.epsilon:  # e-greedy implementation
+
+                return True
+        
+        return False
+
+
+
+    def update_high_score(self, episode_rewards):
+
+        if episode_rewards > self.high_score:
+
+            self.high_score = episode_rewards
+
+
+
+    def decay_epsilon(self):
+
+        self.epsilon *= self.epsilon_decay_rate
+
+
+
+### set up tensorflow neural net
+
 def weight_variable(shape):
     
     initial = tf.truncated_normal(shape, stddev=0.1)
@@ -109,33 +144,21 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 sess.run(tf.initialize_all_variables())
 
-for i in range(10000):
-    
-    batch = next_batch(50)
-    if i%100 == 0:
-        train_accuracy = accuracy.eval(feed_dict={ state:batch[0], actions: batch[1], keep_prob: 1.0})
-        print("step %d, training accuracy %g"%(i, train_accuracy))
-    train_step.run(feed_dict={state: batch[0], actions: batch[1], keep_prob: 0.75})
 
-# Save the variables to disk.
+### Save the variables to disk. (In case we want to store our model)
 #save_path = saver.save(sess, "/Users/idiosocratic/desktop/env/capstone/model.ckpt")
 #print("Model saved in file: %s" % save_path)
 
-#print("test accuracy %g"%accuracy.eval(feed_dict={ state: testing_data[0], output: testing_data[1], keep_prob: 1.0}))
-print "done!"
-
-t =  [ 0.025323  ,  0.17638823,  0.02746022, -0.25126142]
-et = np.expand_dims(t, axis=0)
-print(output.eval(feed_dict = {state: et, keep_prob: 1.0}))
-print(np.argmax(output.eval(feed_dict = {state: et, keep_prob: 1.0})))
-
 
 env = gym.make('CartPole-v0')
-for i_episode in xrange(0):
+wondering_gnome = PolyGradAgent(env.action_space)
+
+for i_episode in xrange(2000):
     observation = env.reset()
     episode_rewards = 0
     episode_state_action_list = []
-    episode_state_target_list = []
+    
+    #episode_state_target_list = []
     for t in xrange(200):
         env.render()
         #print observation
@@ -163,27 +186,26 @@ for i_episode in xrange(0):
             #print "Episode finished after {} timesteps".format(t+1)
             break
 
-print "E Rs: "
+    print "E Rs: "
     print episode_rewards
 
+    if wondering_gnome.did_we_do_well(episode_rewards):
 
-for state_action in raw_testing_data:
-    #print state_action
-    _state =  np.expand_dims(state_action[0], axis=0)
-    #print _state
-    correct_action = np.argmax(state_action[1])
-    
-    raw_prediction = output.eval(feed_dict = {state: _state, keep_prob: 1.0})
-    
-    _prediction = np.argmax(raw_prediction)
-    
-    if _prediction == correct_action:
-        
-        print "Correct!"
+        wondering_gnome.add_to_memory(episode_state_action_list)
 
-    if not _prediction == correct_action:
-        
-        print "Wrong!"
+
+    batch_size = 100
+
+    if len(wondering_gnome.state_action_mem) > batch_size:
+
+        batch = wondering_gnome.get_next_batch(batch_size)
+
+        if i%100 == 0:
+            train_accuracy = accuracy.eval(feed_dict={ state:batch[0], actions: batch[1], keep_prob: 1.0})
+            print("step %d, training accuracy %g"%(i, train_accuracy))
+                
+        train_step.run(feed_dict={state: batch[0], actions: batch[1], keep_prob: 0.75})
+
 
 
 
