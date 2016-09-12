@@ -189,7 +189,12 @@ for i_episode in xrange(400):
     if wondering_gnome.should_we_exploit():
 
         wondering_gnome.decay_epsilon()
-    
+
+if np.average(episode_rewards_list[-100:]) >= 195:
+
+    print "Solved!"
+    assert False
+
            
       
 print "Rewards List: "

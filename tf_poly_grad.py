@@ -19,14 +19,16 @@ class PolyGradAgent(object):
 
         ### model hyperparameters
 
-        self.epsilon = 0.7  # how much do we explore
+        self.epsilon = 0.99  # how much do we explore
         self.epsilon_decay_rate = 0.99  # rate by which exploration decreases
         self.high_score = 0  # keep track of highest score obtained thus far
         self.did_well_threshold = 0.77  # how close we need to be to our high score to have "done well"
         self.net_trained = False  # has our neural net had any training
 
         ### finite state_action memory for episodes where we did well
-        self.state_action_mem = deque(maxlen = 5000)
+        self.state_action_mem = deque(maxlen = 10000)
+            
+        self.last_30 = deque(maxlen = 30)
 
 
 
@@ -100,8 +102,19 @@ class PolyGradAgent(object):
 
 
     def decay_epsilon(self):
+        if self.high_score > 50:
+            self.epsilon = 0.5
+        if self.high_score > 100:
+            self.epsilon = 0.4
+        if self.high_score > 150:
+            self.epsilon = 0.3
+        if self.high_score == 200:
+            self.epsilon = 0.1
 
-        self.epsilon *= self.epsilon_decay_rate
+
+#if self.epsilon > 0.1:
+
+#           self.epsilon *= self.epsilon_decay_rate
 
 
 
@@ -123,14 +136,14 @@ sess = tf.InteractiveSession()  # initialize tensorflow session
 
 state = tf.placeholder(tf.float32,[None,4])
 actions = tf.placeholder(tf.float32,[None,2])
-w1 = weight_variable([4,10])
-b1 = bias_variable([10])
+w1 = weight_variable([4,40])
+b1 = bias_variable([40])
 h1 = tf.nn.relu(tf.matmul(state,w1) + b1)
 
 keep_prob = tf.placeholder(tf.float32)
 h1_drop = tf.nn.dropout(h1, keep_prob)
 
-w2 = weight_variable([10,2])
+w2 = weight_variable([40,2])
 b2 = bias_variable([2])
 output = tf.nn.softmax(tf.matmul(h1_drop,w2) + b2)
 
@@ -156,7 +169,7 @@ sess.run(tf.initialize_all_variables())
 env = gym.make('CartPole-v0')
 wondering_gnome = PolyGradAgent(env.action_space)
 
-for i_episode in xrange(2000):
+for i_episode in xrange(4000):
     observation = env.reset()
     episode_rewards = 0
     episode_state_action_list = []
@@ -179,7 +192,7 @@ for i_episode in xrange(2000):
 
             random_fate = np.random.random()
         
-            if random_fate > self.epsilon:  # e-greedy implementation
+            if random_fate > wondering_gnome.epsilon:  # e-greedy implementation
             
                 raw_output = output.eval(feed_dict = {state: current_state, keep_prob: 1.0})
         
@@ -197,15 +210,33 @@ for i_episode in xrange(2000):
             #print "Episode finished after {} timesteps".format(t+1)
             break
 
-    print "E Rs: "
+    print "Episode Rewards: "
     print episode_rewards
+    print "Epsilon: "
+    print wondering_gnome.epsilon
+    print "Mem length: "
+    print len(wondering_gnome.state_action_mem)
+
+    wondering_gnome.last_30.append(episode_rewards)
+    print "Running average of last 30 episodes: " + str(np.average(wondering_gnome.last_30))
 
     if wondering_gnome.did_we_do_well(episode_rewards):  # add episode to our memory if we did well
 
         wondering_gnome.add_to_memory(episode_state_action_list)
-
+    
+        print "NEW MEM, NEW MEM, NEW MEM, NEW MEM!"
+        print "NEW MEM, NEW MEM, NEW MEM, NEW MEM!"
+    
+        print ""
+        print "Well Rewards: "
+        print(str(episode_rewards) + " ")*16
 
     wondering_gnome.update_high_score(episode_rewards)  # update high score
+
+
+    if exploiting:
+
+        wondering_gnome.decay_epsilon()
 
 
     batch_size = 100
@@ -221,6 +252,9 @@ for i_episode in xrange(2000):
         train_step.run(feed_dict={state: batch[0], actions: batch[1], keep_prob: 0.75})
 
         wondering_gnome.net_trained = True
+
+        #print "TRAINING TRAINING TRAINING TRAINING TRAINING"
+        #print "TRAINING TRAINING TRAINING TRAINING TRAINING"
 
 
 print "Size of our memory: "
