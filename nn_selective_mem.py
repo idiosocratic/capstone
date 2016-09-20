@@ -121,7 +121,23 @@ class NnSelcMemAgent(object):
     
         if episode_rewards > self.highest_episode_rewards:
         
-            self.highest_episode_rewards = episode_rewards 
+            self.highest_episode_rewards = episode_rewards
+
+
+
+    def prune_memory(self):
+
+        pruning_list = []
+        
+        for index, memory in enumerate(self.state_action_memory):
+
+            if memory[2] < (self.highest_episode_rewards * self.did_we_do_well_threshold):
+
+                pruning_list.append(index)
+
+        for leaf in pruning_list:
+
+            cut = self.state_action_memory.pop(leaf)
         
     
   
@@ -132,7 +148,7 @@ wondering_gnome = NnSelcMemAgent(env.action_space)
             
 episode_rewards_list = []            
             
-for i_episode in xrange(400):
+for i_episode in xrange(1000):
     observation = env.reset()
     
     episode_rewards = 0
@@ -164,10 +180,10 @@ for i_episode in xrange(400):
         
         episode_state_action_list.append((current_state, action))
         
-        print "Iteration_number: "
-        print wondering_gnome.iteration 
-        print "Epsilon: "
-        print wondering_gnome.epsilon
+        #print "Iteration_number: "
+        #print wondering_gnome.iteration
+        #print "Epsilon: "
+        #print wondering_gnome.epsilon
  
         if done:
             
@@ -177,6 +193,7 @@ for i_episode in xrange(400):
     print "Episode Rewards: "
     print episode_rewards
     episode_rewards_list.append(episode_rewards)
+    print "running average: " + str(np.average(episode_rewards_list[-100:]))
     
     wondering_gnome.update_highest_reward(episode_rewards)
         
