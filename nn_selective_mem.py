@@ -22,7 +22,7 @@ class NnSelcMemAgent(object):
         self.iteration = 0 # how many actions have we taken
         self.time_before_exploit = 337 # how much knowledge to build before using it
         self.max_memory = 4e4  # maximum memory to retain
-        self.state_action_memory = [] # selective memory for our (state,action) tuples
+        self.state_action_rewards_memory = [] # selective memory for our (state,action) tuples
     
     
     
@@ -36,24 +36,23 @@ class NnSelcMemAgent(object):
             
             
     
-    def add_to_mem(self, episode_state_action_list):
+    def add_to_mem(self, episode_state_action_rewards_list):
         
+        for s_a_r in episode_state_action_rewards_list:
         
-        for s_a in episode_state_action_list:
-        
-            self.state_action_memory.append(s_a)
+            self.state_action_rewards_memory.append(s_a_r)
     
         
 
     def get_best_action(self, state):
     
-        nearest_s_a_tuples = self.get_closest_states(state)
+        nearest_s_a_r_tuples = self.get_closest_states(state)
         
         action_list = [] # get the actions from similar states
         
-        for s_a in nearest_s_a_tuples:
+        for s_a_r in nearest_s_a_r_tuples:
         
-            action_list.append(s_a[1])
+            action_list.append(s_a_r[1])
                     
         averaged_action = np.average(action_list) # get majority vote           
                     
@@ -81,23 +80,23 @@ class NnSelcMemAgent(object):
     
     def get_closest_states(self, state):  
         
-        sorted_s_a_tuples = []
+        sorted_s_a_r_tuples = []
         
-        for s_a in self.state_action_memory:
+        for s_a_r in self.state_action_rewards_memory:
         
-            dist = self.get_L2_distance(s_a[0], state)
+            dist = self.get_L2_distance(s_a_r[0], state)
             
-            sorted_s_a_tuples.append((dist,s_a))
+            sorted_s_a_r_tuples.append((dist,s_a_r))
     
-        sorted_s_a_tuples = sorted(sorted_s_a_tuples, key = lambda x: x[0])  # sort by closest distance
+        sorted_s_a_r_tuples = sorted(sorted_s_a_r_tuples, key = lambda x: x[0])  # sort by closest distance
         
-        nearest_s_a_tuples = []
+        nearest_s_a_r_tuples = []
         
         for i in range(self.number_of_neighbors):  # how many neighbors are we using
         
-            nearest_s_a_tuples.append(sorted_s_a_tuples[i][1])  # only keeping the state-action pairs
+            nearest_s_a_r_tuples.append(sorted_s_a_r_tuples[i][1])  # only keeping the state-action pairs
         
-        return nearest_s_a_tuples
+        return nearest_s_a_r_tuples
               
         
             
@@ -129,7 +128,7 @@ class NnSelcMemAgent(object):
 
         pruning_list = []
         
-        for index, memory in enumerate(self.state_action_memory):
+        for index, memory in enumerate(self.state_action_rewards_memory):
 
             if memory[2] < (self.highest_episode_rewards * self.did_we_do_well_threshold):
 
@@ -137,7 +136,7 @@ class NnSelcMemAgent(object):
 
         for leaf in pruning_list:
 
-            cut = self.state_action_memory.pop(leaf)
+            cut = self.state_action_rewards_memory.pop(leaf)
         
     
   
@@ -190,8 +189,7 @@ for i_episode in xrange(1000):
             print "Episode finished after {} timesteps".format(t+1)
             break
 
-    print "Episode Rewards: "
-    print episode_rewards
+    print "Episode:" + str(i_episode) + ", Rewards: " + str(episode_rewards)
     episode_rewards_list.append(episode_rewards)
     print "running average: " + str(np.average(episode_rewards_list[-100:]))
     
@@ -206,6 +204,10 @@ for i_episode in xrange(1000):
     if wondering_gnome.should_we_exploit():
 
         wondering_gnome.decay_epsilon()
+
+    if i_episode % 20 == 0:
+
+        wondering_gnome.prune_memory()
 
 if np.average(episode_rewards_list[-100:]) >= 195:
 
