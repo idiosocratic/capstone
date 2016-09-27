@@ -14,21 +14,19 @@ class PolyGradAgent(object):
     
     def __init__(self, action_space):
         
-        self.action_space = action_space
-        assert isinstance(action_space, gym.spaces.discrete.Discrete), 'Yo, not our space!'
-
         ### model hyperparameters
 
-        self.epsilon = 0.99  # how much do we explore
-        self.epsilon_decay_rate = 0.99  # rate by which exploration decreases
+        self.epsilon = 0.9  # how much do we explore initially
+        #        self.epsilon_decay_rate = 0.99  # rate by which exploration decreases
         self.high_score = 0  # keep track of highest score obtained thus far
         self.did_well_threshold = 0.77  # how close we need to be to our high score to have "done well"
         self.net_trained = False  # has our neural net had any training
 
         ### finite state_action memory for episodes where we did well
-        self.state_action_mem = deque(maxlen = 10000)
+        self.memory_len = 10000
+        self.state_action_mem = deque(maxlen = self.memory_len)
             
-        self.last_30 = deque(maxlen = 30)
+        self.last_100_episode_scores = deque(maxlen = 100) # keep track of average score from last 100 episodes
 
 
 
@@ -66,20 +64,24 @@ class PolyGradAgent(object):
 
     def add_to_memory(self, episode_state_action_list):
 
-        for state_action in episode_state_action_list:
 
-            _state = state_action[0]
-            _action = None  # initialize action
-            
-            if state_action[1] == 1:  # format one-hot action vector
-            
-                _action = [0, 1]
-            
-            if state_action[1] == 0:  # format one-hot action vector
-            
-                _action = [1, 0]
+        ## only use next line when opting for fast convergence epsilon strategy
+        if not (len(self.state_action_mem) == self.memory_len):
 
-            self.state_action_mem.append((_state, _action))
+            for state_action in episode_state_action_list:
+
+                _state = state_action[0]
+                _action = None  # initialize action
+            
+                if state_action[1] == 1:  # format one-hot action vector
+            
+                    _action = [0, 1]
+            
+                if state_action[1] == 0:  # format one-hot action vector
+            
+                    _action = [1, 0]
+
+                self.state_action_mem.append((_state, _action))
 
 
 
@@ -102,20 +104,83 @@ class PolyGradAgent(object):
 
 
     def decay_epsilon(self):
-        if self.high_score > 50:
+    
+    ## decaying epsilon strategy for fast solution convergence, average solution ~700 episodes
+    ## fails to converge 1/8 episode from bad initialization
+    
+        if len(self.state_action_mem) > 0:
+            self.epsilon = 0.9
+        if len(self.state_action_mem) > 0.05 * self.memory_len:
+            self.epsilon = 0.8
+        if len(self.state_action_mem) > 0.1 * self.memory_len:
+            self.epsilon = 0.7
+        if len(self.state_action_mem) > 0.2 * self.memory_len:
+            self.epsilon = 0.6
+        if len(self.state_action_mem) > 0.3 * self.memory_len:
             self.epsilon = 0.5
-        if self.high_score > 100:
+        if len(self.state_action_mem) > 0.4 * self.memory_len:
             self.epsilon = 0.4
-        if self.high_score > 150:
+        if len(self.state_action_mem) > 0.5 * self.memory_len:
             self.epsilon = 0.3
-        if self.high_score == 200:
+        if len(self.state_action_mem) > 0.6 * self.memory_len:
+            self.epsilon = 0.2
+        if len(self.state_action_mem) > 0.7 * self.memory_len:
             self.epsilon = 0.1
+    
+    
+    
+    ## decaying epsilon strategy for eventual solution convergence, average solution ~6000 episodes
 
+#        if self.high_score > 50:
+#            self.epsilon = 0.5
+#        if self.high_score > 100:
+#            self.epsilon = 0.4
+#        if self.high_score > 150:
+#            self.epsilon = 0.3
+#        if self.high_score == 200:
+#            self.epsilon = 0.1
 
-#if self.epsilon > 0.1:
+    
+    
+    def bs_func(self):
+        
+        epsilon_set = False
+        
+        #        if len(self.state_action_mem) < 500:
+        #   self.epsilon = 0.9
+        #   epsilon_set = True
+        
+        if (np.average(self.last_100_episode_scores) > 0.9 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.1
+            epsilon_set = True
+        
+        if (np.average(self.last_100_episode_scores) > 0.8 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.2
+            epsilon_set = True
+        
+        if (np.average(self.last_100_episode_scores) > 0.7 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.3
+            epsilon_set = True
 
-#           self.epsilon *= self.epsilon_decay_rate
+        if (np.average(self.last_100_episode_scores) > 0.6 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.4
+            epsilon_set = True
 
+        if (np.average(self.last_100_episode_scores) > 0.5 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.4
+            epsilon_set = True
+
+        if (np.average(self.last_100_episode_scores) > 0.4 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.5
+            epsilon_set = True
+
+        if (np.average(self.last_100_episode_scores) > 0.3 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.5
+            epsilon_set = True
+
+        if (np.average(self.last_100_episode_scores) > 0.2 * self.high_score) & (not epsilon_set):
+            self.epsilon = 0.5
+            epsilon_set = True
 
 
 ### set up tensorflow neural net
@@ -169,7 +234,7 @@ sess.run(tf.initialize_all_variables())
 env = gym.make('CartPole-v0')
 wondering_gnome = PolyGradAgent(env.action_space)
 
-for i_episode in xrange(4000):
+for i_episode in xrange(10000):
     observation = env.reset()
     episode_rewards = 0
     episode_state_action_list = []
@@ -210,15 +275,19 @@ for i_episode in xrange(4000):
             #print "Episode finished after {} timesteps".format(t+1)
             break
 
-    print "Episode Rewards: "
-    print episode_rewards
+    print "Episode: " + str(i_episode) + ", " + "Rewards: " + str(episode_rewards)
     print "Epsilon: "
     print wondering_gnome.epsilon
     print "Mem length: "
     print len(wondering_gnome.state_action_mem)
 
-    wondering_gnome.last_30.append(episode_rewards)
-    print "Running average of last 30 episodes: " + str(np.average(wondering_gnome.last_30))
+    wondering_gnome.last_100_episode_scores.append(episode_rewards)
+    print "Running average of last 100 episodes: " + str(np.average(wondering_gnome.last_100_episode_scores))
+
+    if np.average(wondering_gnome.last_100_episode_scores) >= 195.0:
+        print "Solved!"
+        assert False
+
 
     if wondering_gnome.did_we_do_well(episode_rewards):  # add episode to our memory if we did well
 
